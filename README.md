@@ -18,16 +18,16 @@ When designing a multi-stage pipeline, the generator pattern could be extremely 
 The generator takes in a stream of data, spinning a goroutine to pass the members of the straem to an outbound channel, which is then returned from the function.
 ```golang
 func generator(nums []int) <-chan int {
-	out := make(chan int)
-	
-	go func() {
-		for _, n := range nums {
-			out <- n
+    out := make(chan int)
+
+    go func() {
+        for _, n := range nums {
+            out <- n
         }
-		close(out)
-    }
-	
-	return out
+        close(out)
+    }()
+
+    return out
 }
 ```
 
