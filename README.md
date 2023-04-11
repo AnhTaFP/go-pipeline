@@ -74,3 +74,14 @@ Notice that in `batchEvents()`, we make a slice of events `b := make(batch, 0, 1
 When possible, confine the scope of not thread-safe data structure so that it won't be accessible by multiple goroutines
 
 ### Graceful shutdown
+When the application wants to terminate, either by receiving a termination signal, or when the designated run time has passed (20 seconds), it synchronizes cancellation among different parts as explained in the Cancellation section above.
+On top of that it also allows a grace period of 5 seconds to let unfinished work to have a chance to finish.
+Upon the completion of unfinished work, the `done` channel is closed
+```golang
+select {
+case <-done:
+    log.Println("shut down application because no more batches to send")
+case <-time.After(5 * time.Second):
+    log.Println("shut down application because 5 seconds has passed")
+}
+```
