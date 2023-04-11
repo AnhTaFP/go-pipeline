@@ -85,11 +85,14 @@ func sendToPerseus(b batch) {
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 
+	// stage 1
 	eventStream := receiveSQSMessages(ctx)
+
+	// stage 2
 	batchStream := batchEvents(eventStream)
 
+	// stage 3
 	done := make(chan struct{})
-
 	go func() {
 		for b := range batchStream {
 			sendToPerseus(b)
