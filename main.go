@@ -41,7 +41,7 @@ func receiveSQSMessages(ctx context.Context) <-chan event {
 
 // batchEvents batches up to 100 events, or every 5 seconds, then sends the batch to a batch stream,
 // which is returned from the function.
-func batchEvents(ctx context.Context, eventStream <-chan event) <-chan batch {
+func batchEvents(eventStream <-chan event) <-chan batch {
 	batchStream := make(chan batch)
 	b := make(batch, 0, 100)
 
@@ -51,22 +51,24 @@ func batchEvents(ctx context.Context, eventStream <-chan event) <-chan batch {
 		for {
 			select {
 			case e, ok := <-eventStream:
-				if ok {
-					log.Println("batchEvents: batching events")
-					b = append(b, e)
+				if !ok {
+					log.Println("batchEvents: sending the last batch when eventStream is closed")
+					batchStream <- b
+					return
+				}
 
-					if len(b) == 100 {
-						log.Println("batchEvents: sending batched events to batchStream")
-						batchStream <- b
-						b = b[:0]
-					}
+				log.Println("batchEvents: batching events")
+				b = append(b, e)
+
+				if len(b) == 100 {
+					log.Println("batchEvents: sending batched events to batchStream")
+					batchStream <- b
+					b = b[:0]
 				}
 			case <-time.After(5 * time.Second):
 				log.Println("batchEvents: sending batched events to batchStream because 5 seconds has passed")
 				batchStream <- b
 				b = b[:0]
-			case <-ctx.Done():
-				return
 			}
 		}
 	}()
@@ -84,7 +86,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 
 	eventStream := receiveSQSMessages(ctx)
-	batchStream := batchEvents(ctx, eventStream)
+	batchStream := batchEvents(eventStream)
 
 	done := make(chan struct{})
 
