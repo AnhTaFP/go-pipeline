@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"math/rand"
 	"time"
 )
 
@@ -10,15 +11,20 @@ type event struct{}
 
 type batch []event
 
-// receiveSQSMessages pretends to receive sqs message every 10 milliseconds,
+// receiveSQSMessages pretends to receive sqs message every 1-20 milliseconds,
 // then sends that event to an event stream, which is then returned.
 func receiveSQSMessages(ctx context.Context) <-chan event {
 	eventStream := make(chan event)
 	go func() {
 		defer close(eventStream)
 		for {
+			interval := rand.Intn(20)
+			if interval == 0 {
+				interval = 1
+			}
+
 			select {
-			case <-time.After(10 * time.Millisecond):
+			case <-time.After(time.Duration(interval) * time.Millisecond):
 				log.Println("receiveSQSMessages: sending event to eventStream")
 				e := event{}
 				eventStream <- e
