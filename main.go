@@ -42,11 +42,9 @@ func receiveSQSMessages(ctx context.Context) <-chan event {
 func batchEvents(ctx context.Context, eventStream <-chan event) <-chan batch {
 	batchStream := make(chan batch)
 	b := make(batch, 0, 100)
-	tk := time.NewTicker(5 * time.Second)
 
 	go func() {
 		defer close(batchStream)
-		defer tk.Stop()
 
 		for {
 			select {
@@ -61,7 +59,7 @@ func batchEvents(ctx context.Context, eventStream <-chan event) <-chan batch {
 						b = b[:0]
 					}
 				}
-			case <-tk.C:
+			case <-time.After(5 * time.Second):
 				log.Println("batchEvents: sending batched events to batchStream because 5 seconds has passed")
 				batchStream <- b
 				b = b[:0]
@@ -74,22 +72,10 @@ func batchEvents(ctx context.Context, eventStream <-chan event) <-chan batch {
 	return batchStream
 }
 
-// handleBatch receives from batchStream and send batch to perseus
-func handleBatch(ctx context.Context, batchStream <-chan batch) {
-	go func() {
-		for {
-			select {
-			case b := <-batchStream:
-				sendToPerseus(b)
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-}
-
+// sendToPerseus pretends to send data to Perseus with a latency of 50 Milliseconds
 func sendToPerseus(b batch) {
 	log.Printf("sending a batch of %d events to perseus\n", len(b))
+	time.Sleep(50 * time.Millisecond)
 }
 
 func main() {
@@ -98,10 +84,25 @@ func main() {
 	eventStream := receiveSQSMessages(ctx)
 	batchStream := batchEvents(ctx, eventStream)
 
-	handleBatch(ctx, batchStream)
+	done := make(chan struct{})
+
+	go func() {
+		for b := range batchStream {
+			sendToPerseus(b)
+		}
+
+		close(done)
+	}()
 
 	select {
-	case <-time.After(1 * time.Minute):
+	case <-time.After(20 * time.Second):
 		cancel()
+		log.Println("shutting down the application after 1 minute, waiting for the last batch to be sent for 5 seconds")
+		select {
+		case <-done:
+			log.Println("shut down application because no more batches to send")
+		case <-time.After(5 * time.Second):
+			log.Println("shut down application because 5 seconds has passed")
+		}
 	}
 }
