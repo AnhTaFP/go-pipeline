@@ -71,6 +71,6 @@ go func() {
 ### Confinement
 Data race is a concurrency problem. 
 Notice that in `batchEvents()`, we make a slice of events `b := make(batch, 0, 100)`, which is not a thread-safe data structure, but we never have to apply any locking technique for that because the usage of `b` is "confied" within the function.
-When possible, confine the scope of mutable data structure so that it won't be accessible by multiple goroutines
+When possible, confine the scope of not thread-safe data structure so that it won't be accessible by multiple goroutines
 
 ### Graceful shutdown
