@@ -4,6 +4,8 @@ import (
 	"context"
 	"log"
 	"math/rand"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -79,7 +81,7 @@ func sendToPerseus(b batch) {
 }
 
 func main() {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 
 	eventStream := receiveSQSMessages(ctx)
 	batchStream := batchEvents(ctx, eventStream)
@@ -96,8 +98,16 @@ func main() {
 
 	select {
 	case <-time.After(20 * time.Second):
-		cancel()
-		log.Println("shutting down the application after 1 minute, waiting for the last batch to be sent for 5 seconds")
+		stop()
+		log.Println("shutting down the application after 20 seconds, waiting for the last batch to be sent for 5 seconds")
+		select {
+		case <-done:
+			log.Println("shut down application because no more batches to send")
+		case <-time.After(5 * time.Second):
+			log.Println("shut down application because 5 seconds has passed")
+		}
+	case <-ctx.Done():
+		log.Println("shutting down the application because of receiving termination signal, waiting for the last batch to be sent for 5 seconds")
 		select {
 		case <-done:
 			log.Println("shut down application because no more batches to send")
