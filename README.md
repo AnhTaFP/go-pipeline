@@ -30,7 +30,44 @@ func generator(nums []int) <-chan int {
     return out
 }
 ```
+Note that a rule of thumb here: a generator starts a new outbound channel, returns it, and is responsible for closing it. 
+This is important for cancellation technique below.
 
 ### Cancellation
+To synchronize cancellation between different goroutines, or different stages, use context.
+Some Go contexts can be cancelled (by using `context.WithTimeout`, `context.WithDeadline` or `context.WithCancel`).
+
+In this demonstration, we use `signal.NotifyContext` to handle termination signal, which calls `context.WithCancel` under the hood.
+How does this actually work? When the application wants to terminate, the `stop()` function is called, which triggers the closing of the done channel of `ctx`.
+
+In `receiveSQSMessages()`, the generator stops producing event once this cancellation signal is received by listening to `ctx.Done()`. 
+```golang
+case <-ctx.Done():
+    return 
+}
+```
+
+This in turns triggers `batchEvents()` to send the last batch, and close the batch stream
+```golang
+case e, ok := <-eventStream:
+    if !ok {
+        log.Println("batchEvents: sending the last batch when eventStream is closed")
+        batchStream <- b
+        return
+    }
+```
+
+In the last stage, the for loop exits when `batchStream` is closed
+```golang
+go func() {
+    for b := range batchStream {
+        sendToPerseus(b)
+    }
+
+    close(done)
+}()
+```
+
+### Confinement
 
 ### Graceful shutdown
