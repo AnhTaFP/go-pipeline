@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"math/rand"
 	"os/signal"
@@ -124,5 +123,5 @@ func main() {
 		}
 	}
 
-	fmt.Printf("total batches sent: %d\n", total)
+	log.Printf("total batches sent: %d\n", total)
 }
