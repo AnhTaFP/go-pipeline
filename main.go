@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"math/rand"
 	"os/signal"
@@ -93,9 +94,11 @@ func main() {
 
 	// stage 3
 	done := make(chan struct{})
+	var total int
 	go func() {
 		for b := range batchStream {
 			sendToPerseus(b)
+			total++
 		}
 
 		close(done)
@@ -120,4 +123,6 @@ func main() {
 			log.Println("shut down application because 5 seconds has passed")
 		}
 	}
+
+	fmt.Printf("total batches sent: %d\n", total)
 }
