@@ -5,8 +5,11 @@ import (
 	"log"
 	"math/rand"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type event struct{}
@@ -78,8 +81,11 @@ func batchEvents(eventStream <-chan event) <-chan batch {
 
 // sendToPerseus pretends to send data to Perseus with a latency of 50 Milliseconds
 func sendToPerseus(b batch) {
-	log.Printf("sending a batch of %d events to perseus\n", len(b))
+	id := uuid.NewString()
+
+	log.Printf("sending a batch of %d events to perseus\n, batch id: %s", len(b), id)
 	time.Sleep(50 * time.Millisecond)
+	log.Printf("finished batch id %s\n", id)
 }
 
 func main() {
@@ -93,13 +99,21 @@ func main() {
 
 	// stage 3
 	done := make(chan struct{})
-	var total int
 	go func() {
-		for b := range batchStream {
-			sendToPerseus(b)
-			total++
+		var wg sync.WaitGroup
+		wg.Add(10)
+
+		for i := 0; i < 10; i++ {
+			go func() {
+				for b := range batchStream {
+					sendToPerseus(b)
+				}
+
+				wg.Done()
+			}()
 		}
 
+		wg.Wait()
 		close(done)
 	}()
 
@@ -122,6 +136,4 @@ func main() {
 			log.Println("shut down application because 5 seconds has passed")
 		}
 	}
-
-	log.Printf("total batches sent: %d\n", total)
 }
