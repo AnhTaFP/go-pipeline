@@ -66,12 +66,12 @@ func batchEvents(eventStream <-chan event) <-chan batch {
 				if len(b) == 100 {
 					log.Println("batchEvents: sending batched events to batchStream")
 					batchStream <- b
-					b = b[:0]
+					b = make(batch, 0, 100)
 				}
 			case <-time.After(5 * time.Second):
 				log.Println("batchEvents: sending batched events to batchStream because 5 seconds has passed")
 				batchStream <- b
-				b = b[:0]
+				b = make(batch, 0, 100)
 			}
 		}
 	}()
